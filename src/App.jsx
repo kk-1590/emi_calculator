@@ -1,5 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
+import "./utils/constants.js";
+import { tenureData } from "./utils/constants.js";
+import TextInput from "./components/text-input";
+import SliderInput from "./components/slider-input";
+import { numberWithCommas } from "./utils/config.js";
 
 function App() {
   const [cost, setCost] = useState(0);
@@ -13,30 +18,94 @@ function App() {
     if (!cost) {
       return;
     }
+
+    const dp = Number(e.target.value);
+    setDownPayment(dp.toFixed(0));
+
+    //calculate emi and update it
+    const emi = calculateEMI(dp);
+    setEmi(emi);
   };
-  const updateDownPayment = () => {};
-  const calculateEMI = () => {};
+
+  const updateDownPayment = (e) => {
+    if (!cost) {
+      return;
+    }
+
+    const emi = Number(e.target.value);
+    setEmi(emi.toFixed(0));
+
+    //calculate down payment and update it
+    const dp = calculateDP(emi);
+    setDownPayment(dp);
+  };
+
+  const calculateEMI = (downPayment) => {
+    if (!cost) {
+      return;
+    }
+
+    const loanAmt = cost - downPayment;
+    const rateOfInterest = interest / 100;
+    const numOfYears = tenure / 12;
+
+    const EMI =
+      (loanAmt + rateOfInterest * (1 + rateOfInterest) ** numOfYears) /
+      ((1 + rateOfInterest) ** numOfYears - 1);
+
+    return Number(EMI / 12).toFixed(0);
+  };
+
+  const calculateDP = (emi) => {
+    if (!cost) {
+      return;
+    }
+
+    const downPaymentPercent = 100 - (emi / calculateEMI(0)) * 100;
+    return Number((downPaymentPercent / 100) * cost).toFixed(0);
+  };
+
+  const totalDownPayment = () => {
+    return numberWithCommas(
+      (Number(downPayment) + (cost - downPayment) * (fee / 100)).toFixed(0)
+    );
+  };
+
+  const totalEMI = () => {
+    return numberWithCommas((emi * tenure).toFixed(0));
+  };
+
+  useEffect(() => {
+    if (!(cost > 0)) {
+      setDownPayment(0);
+      setEmi(0);
+    }
+
+    const emi = calculateEMI(downPayment);
+    setEmi(emi);
+  }, [tenure, cost]);
 
   return (
     <div className="App">
       <span className="title" style={{ fontSize: 30, marginTop: "10px" }}>
         EMI Calculator
       </span>
-
-      <span className="title">Total Cost of Asset</span>
-      <input
-        type="number"
-        value={cost}
-        onChange={(e) => setCost(e.target.value)}
-        placeholder="Total Cost of Assets"
+      <TextInput
+        title={"Total Cost of Asset"}
+        state={cost}
+        setState={setCost}
       />
 
-      <span className="title">Interest Rate (in %)</span>
-      <input
-        type="number"
-        value={interest}
-        onChange={(e) => setInterest(e.target.value)}
-        placeholder="Interest Rate (in %)"
+      <TextInput
+        title={"Interest Rate (in %)"}
+        state={interest}
+        setState={setInterest}
+      />
+
+      <TextInput
+        title={"Processing Fee (in %)"}
+        state={fee}
+        setState={setFee}
       />
 
       <span className="title">Processing Fee (in %)</span>
@@ -47,40 +116,37 @@ function App() {
         placeholder="Processing Fee (in %)"
       />
 
-      <span className="title">Down Payment</span>
-      <div>
-        <input
-          type="range"
-          min={0}
-          max={cost}
-          className="slider"
-          value={downPayment}
-          onChange={updateEMI}
-        />
+      <SliderInput
+        title="Down Payment"
+        underlineTitle={`Total Down Payment - ${totalDownPayment()}`}
+        onChange={updateEMI}
+        state={downPayment}
+        min={0}
+        max={cost}
+        labelMin={"0%"}
+        labelMax={"100%"}
+      />
 
-        <div className="lables">
-          <label>0%</label>
-          <b>{downPayment}</b>
-          <label>100%</label>
-        </div>
-      </div>
+      <SliderInput
+        title="Loan per Month"
+        underlineTitle={`Total Loan Amount - ${totalEMI()}`}
+        onChange={updateDownPayment}
+        state={emi}
+        min={calculateEMI(cost)}
+        max={calculateEMI(0)}
+      />
 
-      <span className="title">Loan per Month</span>
-      <div>
-        <input
-          type="range"
-          min={calculateEMI(cost)}
-          max={calculateEMI(0)}
-          className="slider"
-          value={emi}
-          onChange={updateDownPayment}
-        />
-
-        <div className="lables">
-          <label>{calculateEMI(cost)}</label>
-          <b>{downPayment}</b>
-          <label>{calculateEMI(0)}</label>
-        </div>
+      <span className="title">Tenure</span>
+      <div className="tenure-container">
+        {tenureData.map((t) => (
+          <button
+            key={t}
+            className={`tenure ${t === tenure ? "active" : ""}`}
+            onClick={() => setTenure(t)}
+          >
+            {t}
+          </button>
+        ))}
       </div>
     </div>
   );
